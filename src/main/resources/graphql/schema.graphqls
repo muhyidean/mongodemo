@@ -1,0 +1,339 @@
+# GraphQL Schema for MongoDB Demo Application
+# This schema defines the types, queries, and mutations available in the GraphQL API
+
+# ============================================================================
+# TYPE DEFINITIONS
+# ============================================================================
+
+type Article {
+    id: ID!
+    title: String!
+    content: String!
+    author: String!
+    publishedDate: String!  # ISO-8601 date-time string
+    tags: [String!]!
+    viewCount: Int!
+    status: ArticleStatus!
+    person: Person  # Optional reference to Person
+}
+
+type Person {
+    id: ID!
+    name: String!
+    job: String!
+}
+
+type Comment {
+    id: ID!
+    contentId: String!
+    contentType: ContentType!
+    author: String!
+    content: String!
+    createdAt: String!  # ISO-8601 date-time string
+    likes: Int!
+    isApproved: Boolean!
+}
+
+# Enum types for type safety
+enum ArticleStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
+}
+
+enum ContentType {
+    ARTICLE
+    NEWS
+}
+
+# Input types for mutations
+input ArticleInput {
+    title: String!
+    content: String!
+    author: String!
+    tags: [String!]
+    status: ArticleStatus
+    personId: ID
+}
+
+input ArticleUpdateInput {
+    title: String
+    content: String
+    author: String
+    tags: [String!]
+    status: ArticleStatus
+    personId: ID
+}
+
+input PersonInput {
+    name: String!
+    job: String!
+}
+
+input CommentInput {
+    contentId: String!
+    contentType: ContentType!
+    author: String!
+    content: String!
+}
+
+# ============================================================================
+# QUERIES
+# ============================================================================
+
+type Query {
+    # Article Queries
+    """
+    Get all articles
+    Example query:
+    {
+      articles {
+        id
+        title
+        author
+        viewCount
+      }
+    }
+    """
+    articles: [Article!]!
+    
+    """
+    Get a single article by ID
+    Example query:
+    {
+      article(id: "123") {
+        id
+        title
+        content
+        author
+        tags
+        viewCount
+        status
+      }
+    }
+    """
+    article(id: ID!): Article
+    
+    """
+    Get articles by author name
+    Example query:
+    {
+      articlesByAuthor(author: "John Doe") {
+        id
+        title
+        author
+      }
+    }
+    """
+    articlesByAuthor(author: String!): [Article!]!
+    
+    """
+    Get articles by status (DRAFT, PUBLISHED, ARCHIVED)
+    Example query:
+    {
+      articlesByStatus(status: PUBLISHED) {
+        id
+        title
+        status
+      }
+    }
+    """
+    articlesByStatus(status: ArticleStatus!): [Article!]!
+    
+    """
+    Search articles by title (case-insensitive partial match)
+    Example query:
+    {
+      searchArticles(title: "Spring") {
+        id
+        title
+        author
+      }
+    }
+    """
+    searchArticles(title: String!): [Article!]!
+    
+    """
+    Get articles containing a specific tag
+    Example query:
+    {
+      articlesByTag(tag: "java") {
+        id
+        title
+        tags
+      }
+    }
+    """
+    articlesByTag(tag: String!): [Article!]!
+    
+    # Person Queries
+    """
+    Get all persons
+    Example query:
+    {
+      persons {
+        id
+        name
+        job
+      }
+    }
+    """
+    persons: [Person!]!
+    
+    """
+    Get a single person by ID
+    Example query:
+    {
+      person(id: "456") {
+        id
+        name
+        job
+      }
+    }
+    """
+    person(id: ID!): Person
+    
+    # Comment Queries
+    """
+    Get all comments
+    Example query:
+    {
+      comments {
+        id
+        author
+        content
+        likes
+      }
+    }
+    """
+    comments: [Comment!]!
+    
+    """
+    Get comments for a specific content (article or news)
+    Example query:
+    {
+      commentsByContent(contentId: "123") {
+        id
+        author
+        content
+        likes
+        isApproved
+      }
+    }
+    """
+    commentsByContent(contentId: String!): [Comment!]!
+}
+
+# ============================================================================
+# MUTATIONS
+# ============================================================================
+
+type Mutation {
+    # Article Mutations
+    """
+    Create a new article
+    Example mutation:
+    mutation {
+      createArticle(article: {
+        title: "GraphQL Introduction"
+        content: "GraphQL is a query language..."
+        author: "John Doe"
+        tags: ["graphql", "api"]
+        status: PUBLISHED
+      }) {
+        id
+        title
+        author
+        status
+      }
+    }
+    """
+    createArticle(article: ArticleInput!): Article!
+    
+    """
+    Update an existing article
+    Example mutation:
+    mutation {
+      updateArticle(id: "123", article: {
+        title: "Updated Title"
+        status: PUBLISHED
+      }) {
+        id
+        title
+        status
+      }
+    }
+    """
+    updateArticle(id: ID!, article: ArticleUpdateInput!): Article!
+    
+    """
+    Delete an article by ID
+    Example mutation:
+    mutation {
+      deleteArticle(id: "123")
+    }
+    """
+    deleteArticle(id: ID!): Boolean!
+    
+    """
+    Increment the view count of an article
+    Example mutation:
+    mutation {
+      incrementViewCount(id: "123") {
+        id
+        viewCount
+      }
+    }
+    """
+    incrementViewCount(id: ID!): Article!
+    
+    # Person Mutations
+    """
+    Create a new person
+    Example mutation:
+    mutation {
+      createPerson(person: {
+        name: "Jane Smith"
+        job: "Software Engineer"
+      }) {
+        id
+        name
+        job
+      }
+    }
+    """
+    createPerson(person: PersonInput!): Person!
+    
+    # Comment Mutations
+    """
+    Create a new comment
+    Example mutation:
+    mutation {
+      createComment(comment: {
+        contentId: "123"
+        contentType: ARTICLE
+        author: "John Doe"
+        content: "Great article!"
+      }) {
+        id
+        author
+        content
+        likes
+      }
+    }
+    """
+    createComment(comment: CommentInput!): Comment!
+    
+    """
+    Like a comment (increment likes count)
+    Example mutation:
+    mutation {
+      likeComment(id: "456") {
+        id
+        likes
+      }
+    }
+    """
+    likeComment(id: ID!): Comment!
+}
+

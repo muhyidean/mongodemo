@@ -99,5 +99,13 @@ public class Article {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public Person getPerson() {
+        return person;
+    }
+
+    public void setPerson(Person person) {
+        this.person = person;
+    }
 }
 
