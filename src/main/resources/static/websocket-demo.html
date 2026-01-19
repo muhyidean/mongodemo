@@ -86,10 +86,31 @@
     
     <!-- Connection Status -->
     <div class="container">
-        <h2>Connection Status</h2>
+        <h2>Connection Status (STOMP)</h2>
         <div id="status" class="status disconnected">Disconnected</div>
-        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="connectBtn" onclick="connect()">Connect via STOMP</button>
         <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+    </div>
+
+    <!-- Simple WebSocket Connection (Non-STOMP) -->
+    <div class="container">
+        <h2>Simple WebSocket Connection (Non-STOMP)</h2>
+        <p><strong>How it works:</strong></p>
+        <ul>
+            <li>Direct WebSocket connection without STOMP protocol</li>
+            <li>Lower-level, simpler approach</li>
+            <li>Direct message handling</li>
+        </ul>
+        <div id="simpleStatus" class="status disconnected">Disconnected</div>
+        <button id="simpleConnectBtn" onclick="connectSimple()">Connect Simple WebSocket</button>
+        <button id="simpleDisconnectBtn" onclick="disconnectSimple()" disabled>Disconnect</button>
+        
+        <h3>Send Message</h3>
+        <input type="text" id="simpleMessage" placeholder="Type a message">
+        <button onclick="sendSimpleMessage()">Send Message</button>
+        
+        <h3>Messages</h3>
+        <div id="simpleMessages" class="messages"></div>
     </div>
 
     <div class="container">
@@ -440,6 +461,148 @@
             // Uncomment to auto-connect:
             // connect();
         };
+
+        // ========== Simple WebSocket (Non-STOMP) Functions ==========
+        
+        let simpleWebSocket = null;
+
+        /**
+         * Connects to the simple WebSocket endpoint (non-STOMP)
+         * 
+         * This uses SockJS which provides WebSocket-like API with fallback transports.
+         * Endpoint: /simple-ws
+         * 
+         * Note: We use SockJS instead of native WebSocket for better compatibility
+         * and to match the server configuration which includes SockJS support.
+         */
+        function connectSimple() {
+            // Create SockJS connection to /simple-ws endpoint
+            // SockJS provides WebSocket-like API with fallback transports
+            // If WebSocket is not available, it falls back to HTTP polling/streaming
+            const socket = new SockJS('/simple-ws');
+            
+            // Connection opened
+            socket.onopen = function(event) {
+                console.log('Simple WebSocket connected');
+                document.getElementById('simpleStatus').textContent = 'Connected';
+                document.getElementById('simpleStatus').className = 'status connected';
+                document.getElementById('simpleConnectBtn').disabled = true;
+                document.getElementById('simpleDisconnectBtn').disabled = false;
+                addSimpleMessage('Connected to simple WebSocket!', 'info');
+            };
+
+            // Listen for messages from server
+            socket.onmessage = function(event) {
+                console.log('Message from server:', event.data);
+                addSimpleMessage('Server: ' + event.data, 'received');
+            };
+
+            // Connection closed
+            socket.onclose = function(event) {
+                console.log('Simple WebSocket disconnected');
+                document.getElementById('simpleStatus').textContent = 'Disconnected';
+                document.getElementById('simpleStatus').className = 'status disconnected';
+                document.getElementById('simpleConnectBtn').disabled = false;
+                document.getElementById('simpleDisconnectBtn').disabled = true;
+                addSimpleMessage('Disconnected from simple WebSocket', 'info');
+            };
+
+            // Error handling
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                document.getElementById('simpleStatus').textContent = 'Connection Error';
+                document.getElementById('simpleStatus').className = 'status disconnected';
+                addSimpleMessage('Connection error occurred', 'error');
+            };
+            
+            // Store the socket for sending messages
+            simpleWebSocket = socket;
+
+            // Connection opened
+            simpleWebSocket.onopen = function(event) {
+                console.log('Simple WebSocket connected');
+                document.getElementById('simpleStatus').textContent = 'Connected';
+                document.getElementById('simpleStatus').className = 'status connected';
+                document.getElementById('simpleConnectBtn').disabled = true;
+                document.getElementById('simpleDisconnectBtn').disabled = false;
+                addSimpleMessage('Connected to simple WebSocket!', 'info');
+            };
+
+            // Listen for messages from server
+            simpleWebSocket.onmessage = function(event) {
+                console.log('Message from server:', event.data);
+                addSimpleMessage('Server: ' + event.data, 'received');
+            };
+
+            // Connection closed
+            simpleWebSocket.onclose = function(event) {
+                console.log('Simple WebSocket disconnected');
+                document.getElementById('simpleStatus').textContent = 'Disconnected';
+                document.getElementById('simpleStatus').className = 'status disconnected';
+                document.getElementById('simpleConnectBtn').disabled = false;
+                document.getElementById('simpleDisconnectBtn').disabled = true;
+                addSimpleMessage('Disconnected from simple WebSocket', 'info');
+            };
+
+            // Error handling
+            simpleWebSocket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                document.getElementById('simpleStatus').textContent = 'Connection Error';
+                document.getElementById('simpleStatus').className = 'status disconnected';
+                addSimpleMessage('Connection error occurred', 'error');
+            };
+        }
+
+        /**
+         * Disconnects from the simple WebSocket
+         */
+        function disconnectSimple() {
+            if (simpleWebSocket !== null) {
+                simpleWebSocket.close();
+                simpleWebSocket = null;
+            }
+        }
+
+        /**
+         * Sends a message via the simple WebSocket
+         */
+        function sendSimpleMessage() {
+            if (simpleWebSocket === null || simpleWebSocket.readyState !== 1) { // 1 = OPEN
+                alert('Please connect first!');
+                return;
+            }
+
+            const messageInput = document.getElementById('simpleMessage');
+            const message = messageInput.value;
+
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+
+            // Send message to server
+            simpleWebSocket.send(message);
+            addSimpleMessage('You: ' + message, 'sent');
+            
+            // Clear input
+            messageInput.value = '';
+        }
+
+        /**
+         * Helper function to add messages to the simple messages div
+         */
+        function addSimpleMessage(text, type) {
+            const div = document.getElementById('simpleMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            const color = type === 'error' ? '#721c24' : type === 'sent' ? '#155724' : '#007bff';
+            messageDiv.style.borderLeftColor = color;
+            messageDiv.innerHTML = `
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                ${text}
+            `;
+            div.insertBefore(messageDiv, div.firstChild);
+        }
     </script>
 </body>
 </html>
