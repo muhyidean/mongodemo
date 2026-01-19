@@ -48,6 +48,19 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
+			<exclusions>
+				<!-- Exclude Netty to avoid conflict with servlet-based WebSocket -->
+				<!-- WebSocket with STOMP requires servlet stack (spring-boot-starter-web) -->
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-reactor-netty</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
 
 		<dependency>

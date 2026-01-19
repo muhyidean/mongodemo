@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Demo - Reactive Content Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .messages {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .message {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: white;
+            border-left: 3px solid #007bff;
+            border-radius: 2px;
+        }
+        .message-time {
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Demo - Reactive Content Platform</h1>
+    
+    <!-- Connection Status -->
+    <div class="container">
+        <h2>Connection Status</h2>
+        <div id="status" class="status disconnected">Disconnected</div>
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+    </div>
+
+    <div class="container">
+        <h2>Real-Time Articles</h2>
+        <p><strong>How it works:</strong></p>
+        <ul>
+            <li>Subscribe to new articles</li>
+            <li>Publish articles via WebSocket</li>
+            <li>See new articles appear instantly</li>
+        </ul>
+        
+        <button onclick="subscribeToNewArticles()">Subscribe to New Articles</button>
+        <button onclick="unsubscribeFromNewArticles()">Unsubscribe</button>
+        
+        <h3>Publish Article</h3>
+        <input type="text" id="articleTitle" placeholder="Article title">
+        <input type="text" id="articleAuthor" placeholder="Author name" value="Jane Smith">
+        <textarea id="articleContent" placeholder="Article content" rows="3"></textarea>
+        <button onclick="publishArticle()">Publish Article</button>
+        
+        <h3>Articles Feed</h3>
+        <div id="articlesMessages" class="messages"></div>
+    </div>
+
+    <!-- Article Status Updates -->
+    <div class="container">
+        <h2>Article Status Updates</h2>
+        <label>Article ID:</label>
+        <input type="text" id="statusArticleId" placeholder="Article ID">
+        <select id="articleStatus">
+            <option value="DRAFT">DRAFT</option>
+            <option value="PUBLISHED">PUBLISHED</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+        </select>
+        <button onclick="updateArticleStatus()">Update Status</button>
+        <button onclick="subscribeToArticleStatus()">Subscribe to Status Updates</button>
+        
+        <h3>Status Updates</h3>
+        <div id="statusMessages" class="messages"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script>
+        /**
+         * WebSocket Client Implementation
+         * 
+         * This script demonstrates how to:
+         * 1. Connect to WebSocket server using SockJS and STOMP
+         * 2. Subscribe to topics to receive messages
+         * 3. Send messages to the server
+         * 4. Handle connection events
+         */
+
+        let stompClient = null;
+
+        /**
+         * Connects to the WebSocket server
+         * 
+         * Steps:
+         * 1. Create SockJS connection to /ws endpoint
+         * 2. Create STOMP client over SockJS
+         * 3. Connect with callback handlers
+         * 4. On successful connection, enable features
+         */
+        function connect() {
+            // Create SockJS connection
+            // SockJS provides WebSocket-like API with fallback transports
+            const socket = new SockJS('/ws');
+            
+            // Create STOMP client over SockJS
+            // STOMP is a messaging protocol that runs on top of WebSocket
+            stompClient = Stomp.over(socket);
+            
+            // Enable STOMP debug logging to see connection details
+            // This helps diagnose connection issues
+            stompClient.debug = function(str) {
+                console.log('STOMP: ' + str);
+            };
+            
+            // Connect to the server
+            // The callback receives a frame object with connection info
+            stompClient.connect({}, function(frame) {
+                console.log('Connected: ' + frame);
+                
+                // Update UI
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                
+                // Automatically subscribe to new articles when connected
+                subscribeToNewArticles();
+            }, function(error) {
+                // Enhanced error handling to show detailed error information
+                console.error('Connection error:', error);
+                console.error('Error details:', JSON.stringify(error, null, 2));
+                
+                let errorMessage = 'Connection Error';
+                if (error) {
+                    if (error.headers && error.headers['message']) {
+                        errorMessage += ': ' + error.headers['message'];
+                    } else if (error.message) {
+                        errorMessage += ': ' + error.message;
+                    } else if (typeof error === 'string') {
+                        errorMessage += ': ' + error;
+                    }
+                }
+                
+                document.getElementById('status').textContent = errorMessage;
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                
+                // Show error in messages area
+                addMessage('articlesMessages', 'Connection failed: ' + errorMessage, 'error');
+            });
+        }
+
+        /**
+         * Disconnects from the WebSocket server
+         */
+        function disconnect() {
+            if (stompClient !== null) {
+                stompClient.disconnect();
+            }
+            document.getElementById('status').textContent = 'Disconnected';
+            document.getElementById('status').className = 'status disconnected';
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            console.log("Disconnected");
+        }
+
+        /**
+         * Subscribes to new articles
+         * 
+         * When an article is published via /app/article/publish,
+         * it's broadcast to /topic/articles/new
+         */
+        function subscribeToNewArticles() {
+            if (stompClient === null || !stompClient.connected) {
+                return;
+            }
+            
+            // Subscribe to new articles topic
+            stompClient.subscribe('/topic/articles/new', function(message) {
+                const article = JSON.parse(message.body);
+                
+                const messagesDiv = document.getElementById('articlesMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                    <strong>New Article Published!</strong><br>
+                    <strong>${article.title}</strong> by ${article.author}<br>
+                    Status: ${article.status}
+                `;
+                messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+            });
+            
+            addMessage('articlesMessages', 'Subscribed to new articles', 'info');
+        }
+
+        /**
+         * Unsubscribes from new articles
+         */
+        function unsubscribeFromNewArticles() {
+            addMessage('articlesMessages', 'Unsubscribed from new articles', 'info');
+        }
+
+        /**
+         * Publishes a new article via WebSocket
+         */
+        function publishArticle() {
+            if (stompClient === null || !stompClient.connected) {
+                alert('Please connect first!');
+                return;
+            }
+            
+            const title = document.getElementById('articleTitle').value;
+            const author = document.getElementById('articleAuthor').value;
+            const content = document.getElementById('articleContent').value;
+            
+            if (!title || !author || !content) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            const article = {
+                title: title,
+                author: author,
+                content: content,
+                tags: ['web', 'technology']
+            };
+            
+            // Send to /app/article/publish
+            // Server will process and broadcast to /topic/articles/new
+            stompClient.send("/app/article/publish", {}, JSON.stringify(article));
+            
+            // Clear inputs
+            document.getElementById('articleTitle').value = '';
+            document.getElementById('articleContent').value = '';
+            
+            addMessage('articlesMessages', 'Article published!', 'info');
+        }
+
+        /**
+         * Updates article status via WebSocket
+         */
+        function updateArticleStatus() {
+            if (stompClient === null || !stompClient.connected) {
+                alert('Please connect first!');
+                return;
+            }
+            
+            const articleId = document.getElementById('statusArticleId').value;
+            const status = document.getElementById('articleStatus').value;
+            
+            if (!articleId) {
+                alert('Please enter an article ID');
+                return;
+            }
+            
+            const statusUpdate = {
+                articleId: articleId,
+                status: status
+            };
+            
+            // Send to /app/article/status
+            stompClient.send("/app/article/status", {}, JSON.stringify(statusUpdate));
+            
+            addMessage('statusMessages', `Status update sent for article ${articleId}`, 'info');
+        }
+
+        /**
+         * Subscribes to article status updates
+         */
+        function subscribeToArticleStatus() {
+            if (stompClient === null || !stompClient.connected) {
+                alert('Please connect first!');
+                return;
+            }
+            
+            const articleId = document.getElementById('statusArticleId').value;
+            if (!articleId) {
+                alert('Please enter an article ID');
+                return;
+            }
+            
+            // Subscribe to all articles status updates
+            stompClient.subscribe('/topic/articles/all', function(message) {
+                const statusUpdate = JSON.parse(message.body);
+                
+                const messagesDiv = document.getElementById('statusMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                    <strong>Status Update:</strong> ${statusUpdate.title}<br>
+                    New Status: ${statusUpdate.status}
+                `;
+                messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+            });
+            
+            addMessage('statusMessages', 'Subscribed to status updates', 'info');
+        }
+
+        /**
+         * Helper function to add messages to a div
+         */
+        function addMessage(divId, text, type) {
+            const div = document.getElementById(divId);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.innerHTML = `<div class="message-time">${new Date().toLocaleTimeString()}</div>${text}`;
+            div.insertBefore(messageDiv, div.firstChild);
+        }
+
+        // Auto-connect on page load
+        window.onload = function() {
+            // Uncomment to auto-connect:
+            // connect();
+        };
+    </script>
+</body>
+</html>
+
