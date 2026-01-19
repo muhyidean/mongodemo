@@ -131,6 +131,25 @@
         <div id="statusMessages" class="messages"></div>
     </div>
 
+    <!-- Person Kafka Events -->
+    <div class="container">
+        <h2>Person Events from Kafka</h2>
+        <p><strong>How it works:</strong></p>
+        <ul>
+            <li>Person collection is capped in MongoDB</li>
+            <li>Tailable cursor watches for new Person documents</li>
+            <li>New Persons are published to Kafka topic "person-events"</li>
+            <li>Kafka messages are consumed and broadcast via WebSocket</li>
+            <li>Subscribe below to see real-time Person events</li>
+        </ul>
+        
+        <button onclick="subscribeToPersonKafkaEvents()">Subscribe to Person Kafka Events</button>
+        <button onclick="unsubscribeFromPersonKafkaEvents()">Unsubscribe</button>
+        
+        <h3>Person Events Feed</h3>
+        <div id="personKafkaMessages" class="messages"></div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script>
@@ -183,6 +202,9 @@
                 
                 // Automatically subscribe to new articles when connected
                 subscribeToNewArticles();
+                
+                // Automatically subscribe to person Kafka events when connected
+                subscribeToPersonKafkaEvents();
             }, function(error) {
                 // Enhanced error handling to show detailed error information
                 console.error('Connection error:', error);
@@ -355,6 +377,51 @@
             });
             
             addMessage('statusMessages', 'Subscribed to status updates', 'info');
+        }
+
+        /**
+         * Subscribes to Person Kafka events
+         * 
+         * This subscribes to the WebSocket topic that receives messages from Kafka
+         * The flow is: MongoDB (Capped) -> Tailable Cursor -> Kafka -> WebSocket -> UI
+         */
+        let personKafkaSubscription = null;
+        
+        function subscribeToPersonKafkaEvents() {
+            if (stompClient === null || !stompClient.connected) {
+                alert('Please connect first!');
+                return;
+            }
+            
+            // Subscribe to person Kafka events topic
+            personKafkaSubscription = stompClient.subscribe('/topic/persons/kafka', function(message) {
+                const person = JSON.parse(message.body);
+                
+                const messagesDiv = document.getElementById('personKafkaMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                    <strong>New Person Event from Kafka!</strong><br>
+                    <strong>ID:</strong> ${person.id}<br>
+                    <strong>Name:</strong> ${person.name}<br>
+                    <strong>Job:</strong> ${person.job}
+                `;
+                messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+            });
+            
+            addMessage('personKafkaMessages', 'Subscribed to Person Kafka events', 'info');
+        }
+
+        /**
+         * Unsubscribes from Person Kafka events
+         */
+        function unsubscribeFromPersonKafkaEvents() {
+            if (personKafkaSubscription !== null) {
+                personKafkaSubscription.unsubscribe();
+                personKafkaSubscription = null;
+                addMessage('personKafkaMessages', 'Unsubscribed from Person Kafka events', 'info');
+            }
         }
 
         /**
