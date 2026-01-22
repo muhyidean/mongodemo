@@ -1,7 +1,10 @@
 package edu.miu.mongodemo.kafka;
 
 import edu.miu.mongodemo.model.Person;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -46,6 +49,18 @@ public class PersonSender {
         kafkaTemplate.send(topic, key, person);
         System.out.println("Person sent to topic '" + topic + "' with key '" + key + "': " + person);
     }
+
+    @Bean
+    public NewTopic personTopic() {
+        return TopicBuilder.name("person-topic")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+
 }
+
+
 
 
