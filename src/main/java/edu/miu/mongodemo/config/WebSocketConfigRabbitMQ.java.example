@@ -1,0 +1,65 @@
+package edu.miu.mongodemo.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+/**
+ * WebSocket Configuration with RabbitMQ (Production Example)
+ * 
+ * This is an example configuration showing how to use RabbitMQ as an external
+ * message broker instead of the in-memory SimpleBroker.
+ * 
+ * To use this:
+ * 1. Add RabbitMQ dependency to pom.xml
+ * 2. Install and start RabbitMQ server
+ * 3. Enable RabbitMQ STOMP plugin
+ * 4. Replace WebSocketConfig with this configuration
+ * 5. Update application.properties with RabbitMQ connection details
+ */
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfigRabbitMQ implements WebSocketMessageBrokerConfigurer {
+
+    /**
+     * Configures RabbitMQ as the external message broker
+     * 
+     * enableStompBrokerRelay() replaces enableSimpleBroker()
+     * - Routes messages to external RabbitMQ broker
+     * - RabbitMQ handles pub/sub distribution
+     * - Supports multiple server instances (horizontal scaling)
+     * - Messages persist across server restarts (if configured)
+     */
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        // Use RabbitMQ as external broker instead of in-memory broker
+        config.enableStompBrokerRelay("/topic", "/queue")
+                // RabbitMQ connection settings
+                .setRelayHost("localhost")              // RabbitMQ host
+                .setRelayPort(61613)                    // STOMP port (default: 61613)
+                .setClientLogin("guest")                // RabbitMQ username
+                .setClientPasscode("guest")             // RabbitMQ password
+                .setVirtualHost("/")                    // RabbitMQ virtual host
+                // Optional: System login for broker management
+                .setSystemLogin("guest")
+                .setSystemPasscode("guest")
+                // Optional: Heartbeat settings
+                .setSystemHeartbeatSendInterval(20000)  // Send heartbeat every 20s
+                .setSystemHeartbeatReceiveInterval(20000); // Expect heartbeat every 20s
+        
+        // Application destination prefix (unchanged)
+        config.setApplicationDestinationPrefixes("/app");
+    }
+
+    /**
+     * Registers STOMP endpoints (unchanged from SimpleBroker)
+     */
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*") // Configure properly for production
+                .withSockJS();
+    }
+}
