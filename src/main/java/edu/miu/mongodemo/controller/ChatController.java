@@ -1,5 +1,4 @@
 package edu.miu.mongodemo.controller;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -19,6 +18,7 @@ import java.util.Map;
  * Chat Controller
  * 
  * REST controller for interacting with Ollama via Spring AI ChatClient
+ * with calculator tool support
  */
 @RestController
 @RequestMapping("/ai")
@@ -64,17 +64,19 @@ public class ChatController {
     }
 
     /**
-     * Get AI response with a custom prompt
-     * 
+     * Get AI response with a custom prompt.
+     *
      * Example: GET /ai/custom?prompt=Explain quantum computing
-     * 
+     *
      * @param prompt The custom prompt to send to the AI
      * @return AI-generated response as a string
      */
     @GetMapping("/custom")
-    public ResponseEntity<?> getCustomResponse(@RequestParam String prompt) {
+    public ResponseEntity<?> getCustomResponse(
+            @RequestParam(defaultValue = "What day is tomorrow?") String prompt) {
         try {
             logger.info("Received custom prompt request: {}", prompt);
+
             String response = chatClient.prompt()
                     .user(prompt)
                     .call()
